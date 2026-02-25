@@ -35,7 +35,7 @@ export default function BubblePop() {
         vy: rand(-0.35, -0.8),
         vx: rand(-0.25, 0.25),
         life: 0,
-        maxLife: rand(45, 90), // 프레임 기준
+        maxLife: rand(45, 90),
       });
     };
 
@@ -57,7 +57,6 @@ export default function BubblePop() {
     };
 
     const drawBubble = (b) => {
-      // 바깥 링
       ctx.beginPath();
       ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
       ctx.strokeStyle = "rgba(228, 228, 231, 0.65)";
@@ -65,16 +64,21 @@ export default function BubblePop() {
       ctx.stroke();
       ctx.closePath();
 
-      // 하이라이트(빛 반사 느낌)
       ctx.beginPath();
-      ctx.arc(b.x - b.r * 0.35, b.y - b.r * 0.35, b.r * 0.25, 0, Math.PI * 2);
+      ctx.arc(
+        b.x - b.r * 0.35,
+        b.y - b.r * 0.35,
+        b.r * 0.25,
+        0,
+        Math.PI * 2
+      );
       ctx.fillStyle = "rgba(228, 228, 231, 0.18)";
       ctx.fill();
       ctx.closePath();
     };
 
     const drawParticle = (p) => {
-      const t = p.life / p.maxLife; // 0→1
+      const t = p.life / p.maxLife;
       const alpha = 1 - t;
       ctx.beginPath();
       ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
@@ -83,10 +87,39 @@ export default function BubblePop() {
       ctx.closePath();
     };
 
-    const step = () => {
+
+    //  누르고 있는 동안 연속 생성 
+    const isPressing = { current: false };
+    const pressPos = { x: 0, y: 0 };
+    let lastSpawnTime = 0;
+    const SPAWN_INTERVAL_MS = 90;
+
+    const setPointerPos = (e) => {
+      const rect = canvas.getBoundingClientRect();
+      pressPos.x = e.clientX - rect.left;
+      pressPos.y = e.clientY - rect.top;
+    };
+
+    const spawnBurst = (x, y) => {
+      // 한 번 스폰할 때 1~2개 랜덤
+      const n = Math.random() < 0.45 ? 2 : 1;
+      for (let i = 0; i < n; i++) {
+        addBubble(x + rand(-10, 10), y + rand(-10, 10));
+      }
+    };
+
+    const step = (now) => {
       ctx.clearRect(0, 0, width, height);
 
-      // 버블 업데이트
+      // 누르고 있는 동안 일정 간격으로 계속 생성
+      if (isPressing.current) {
+        if (now - lastSpawnTime > SPAWN_INTERVAL_MS) {
+          lastSpawnTime = now;
+          spawnBurst(pressPos.x, pressPos.y);
+        }
+      }
+
+      // 버블 업데이트 + 렌더
       for (let i = bubbles.length - 1; i >= 0; i--) {
         const b = bubbles[i];
         b.life += 1;
@@ -95,11 +128,12 @@ export default function BubblePop() {
         b.x += b.vx;
         b.y += b.vy;
 
-        // 화면 밖으로 살짝 나가면 자연스럽게 정리
         const out =
-          b.x + b.r < -20 || b.x - b.r > width + 20 || b.y + b.r < -40 || b.y - b.r > height + 40;
+          b.x + b.r < -20 ||
+          b.x - b.r > width + 20 ||
+          b.y + b.r < -40 ||
+          b.y - b.r > height + 40;
 
-        // 수명 다하면 팡
         if (b.life >= b.maxLife || out) {
           popBubble(b);
           bubbles.splice(i, 1);
@@ -109,12 +143,11 @@ export default function BubblePop() {
         drawBubble(b);
       }
 
-      // 파티클 업데이트
+      // 파티클 업데이트 + 렌더
       for (let i = particles.length - 1; i >= 0; i--) {
         const p = particles[i];
         p.life += 1;
 
-        // 중력 + 감쇠
         p.vy += 0.03;
         p.vx *= 0.99;
         p.vy *= 0.99;
@@ -133,33 +166,51 @@ export default function BubblePop() {
       // 안내 텍스트
       ctx.fillStyle = "rgba(228, 228, 231, 0.55)";
       ctx.font = "12px system-ui, -apple-system, Segoe UI, Roboto";
-      ctx.fillText("Click to create bubbles ✨", 14, 20);
+      ctx.fillText("Press & hold to spawn bubbles ✨", 14, 20);
 
       rafRef.current = requestAnimationFrame(step);
     };
 
     rafRef.current = requestAnimationFrame(step);
 
-    const onClick = (e) => {
-      const rect = canvas.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
+    // pointer 이벤트(마우스/터치 공용)
+    const onPointerDown = (e) => {
+      isPressing.current = true;
+      setPointerPos(e);
+      lastSpawnTime = performance.now() - SPAWN_INTERVAL_MS; // 누르자마자 바로 1번 생성되게
+      canvas.setPointerCapture?.(e.pointerId);
+    };
 
-      // 클릭 한 번에 여러 개 생기게 하면 더 “버블” 느낌
-      const n = Math.random() < 0.4 ? 2 : 1;
-      for (let i = 0; i < n; i++) {
-        addBubble(x + rand(-10, 10), y + rand(-10, 10));
-      }
+    const onPointerMove = (e) => {
+      if (!isPressing.current) return;
+      setPointerPos(e);
+    };
+
+    const stopPress = () => {
+      isPressing.current = false;
     };
 
     const onResize = () => resize();
 
-    canvas.addEventListener("click", onClick);
+    canvas.addEventListener("pointerdown", onPointerDown);
+    canvas.addEventListener("pointermove", onPointerMove);
+    canvas.addEventListener("pointerup", stopPress);
+    canvas.addEventListener("pointercancel", stopPress);
+    canvas.addEventListener("pointerleave", stopPress);
     window.addEventListener("resize", onResize);
+
+    // 스크롤/드래그 기본 동작 방지
+    canvas.style.touchAction = "none";
 
     return () => {
       cancelAnimationFrame(rafRef.current);
-      canvas.removeEventListener("click", onClick);
+
+      canvas.removeEventListener("pointerdown", onPointerDown);
+      canvas.removeEventListener("pointermove", onPointerMove);
+      canvas.removeEventListener("pointerup", stopPress);
+      canvas.removeEventListener("pointercancel", stopPress);
+      canvas.removeEventListener("pointerleave", stopPress);
+
       window.removeEventListener("resize", onResize);
     };
   }, []);
