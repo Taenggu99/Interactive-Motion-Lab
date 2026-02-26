@@ -1,13 +1,13 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useMemo } from "react";
 import CardShell from "./cards/CardShell.jsx";
 import MagneticBalls from "./cards/MagneticBalls.jsx";
 import BubblePop from "./cards/BubblePop.jsx";
 import ElasticBlob from "./cards/ElasticBlob.jsx";
 import TetrisDrop from "./cards/TetrisDrop.jsx";
+import GooeyLiquid from "./cards/GooeyLiquid.jsx";
+import GravitySandbox from "./cards/GravitySandbox.jsx";
 
 export default function HorizontalCards() {
-  const scrollerRef = useRef(null);
-
   const cards = useMemo(
     () => [
       {
@@ -34,51 +34,41 @@ export default function HorizontalCards() {
         subtitle: "클릭으로 생성 + 라인 삭제 + 점수/다음블록",
         component: <TetrisDrop />,
       },
+      {
+        id: "gooey",
+        title: "Gooey Liquid",
+        subtitle: "서로 합쳐지는 끈적한 액체 효과(SVG Filter)",
+        component: <GooeyLiquid />,
+      },
+      {
+        id: "gravity",
+        title: "Gravity Sandbox",
+        subtitle: "중력과 충돌이 있는 물리 시뮬레이션",
+        component: <GravitySandbox />,
+      },
     ],
     []
   );
-
-  // 스크롤휠 감지시 세로 스크롤을 가로 스크롤로 인식
-  useEffect(() => {
-    const el = scrollerRef.current;
-    if (!el) return;
-
-    const onWheel = (e) => {
-      if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
-        e.preventDefault();
-        el.scrollLeft += e.deltaY;
-      }
-    };
-
-    el.addEventListener("wheel", onWheel, { passive: false });
-    return () => el.removeEventListener("wheel", onWheel);
-  }, []);
 
   return (
     <section className="py-10">
       <div className="mx-auto max-w-6xl px-6">
         <h2 className="text-xl font-semibold tracking-tight">Motion Cards</h2>
         <p className="mt-2 text-zinc-300">
-          트랙패드/휠로 좌우 스크롤 해보세요. (scroll-snap 적용)
+          다양한 인터랙티브 모션 컴포넌트들을 확인해보세요.
         </p>
       </div>
 
-      <div
-        ref={scrollerRef}
-        className="mt-6 flex gap-5 overflow-x-auto px-6 pb-8
-                   snap-x snap-mandatory scroll-smooth
-                   [scrollbar-width:thin]"
-      >
-        {cards.map((c) => (
-          <div
-            key={c.id}
-            className="snap-center shrink-0 w-[86vw] sm:w-[520px] md:w-[600px]"
-          >
-            <CardShell title={c.title} subtitle={c.subtitle}>
-              {c.component}
-            </CardShell>
-          </div>
-        ))}
+      <div className="mx-auto max-w-6xl px-6 mt-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {cards.map((c) => (
+            <div key={c.id} className="h-[400px]">
+              <CardShell title={c.title} subtitle={c.subtitle}>
+                {c.component}
+              </CardShell>
+            </div>
+          ))}
+        </div>
       </div>
     </section>
   );
