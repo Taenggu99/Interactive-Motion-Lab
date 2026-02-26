@@ -3,6 +3,7 @@ import CardShell from "./cards/CardShell.jsx";
 import MagneticBalls from "./cards/MagneticBalls.jsx";
 import BubblePop from "./cards/BubblePop.jsx";
 import ElasticBlob from "./cards/ElasticBlob.jsx";
+import TetrisDrop from "./cards/TetrisDrop.jsx";
 
 export default function HorizontalCards() {
   const scrollerRef = useRef(null);
@@ -15,11 +16,10 @@ export default function HorizontalCards() {
         subtitle: "마우스에 반응하는 공(물리/파티클)",
         component: <MagneticBalls />,
       },
-
       {
         id: "elastic",
         title: "Elastic Blob",
-        subtitle: "늘어나는 젤리 도형(SVG/Spring)",
+        subtitle: "늘어나는 젤리 도형(Canvas/Soft-body)",
         component: <ElasticBlob />,
       },
       {
@@ -27,6 +27,12 @@ export default function HorizontalCards() {
         title: "Bubble Pop",
         subtitle: "클릭하면 버블이 생성되고 팡!",
         component: <BubblePop />,
+      },
+      {
+        id: "tetris",
+        title: "Tetris Drop",
+        subtitle: "클릭으로 생성 + 라인 삭제 + 점수/다음블록",
+        component: <TetrisDrop />,
       },
     ],
     []
