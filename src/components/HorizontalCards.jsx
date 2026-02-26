@@ -15,17 +15,18 @@ export default function HorizontalCards() {
         subtitle: "마우스에 반응하는 공(물리/파티클)",
         component: <MagneticBalls />,
       },
-      {
-        id: "bubble",
-        title: "Bubble Pop",
-        subtitle: "클릭하면 버블이 생성되고 팡!",
-        component: <BubblePop />,
-      },
+
       {
         id: "elastic",
         title: "Elastic Blob",
         subtitle: "늘어나는 젤리 도형(SVG/Spring)",
         component: <ElasticBlob />,
+      },
+      {
+        id: "bubble",
+        title: "Bubble Pop",
+        subtitle: "클릭하면 버블이 생성되고 팡!",
+        component: <BubblePop />,
       },
     ],
     []
