@@ -1,25 +1,18 @@
+// eslint-disable-next-line no-unused-vars
 import { motion } from "framer-motion";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 
 export default function GooeyLiquid() {
     const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
     const [isHovering, setIsHovering] = useState(false);
 
-    useEffect(() => {
-        const handleMouseMove = (e) => {
-            const rect = e.currentTarget.getBoundingClientRect();
-            setMousePos({
-                x: e.clientX - rect.left,
-                y: e.clientY - rect.top,
-            });
-        };
-
-        const container = document.getElementById("gooey-container");
-        if (container) {
-            container.addEventListener("mousemove", handleMouseMove);
-            return () => container.removeEventListener("mousemove", handleMouseMove);
-        }
-    }, []);
+    const handleMouseMove = (e) => {
+        const rect = e.currentTarget.getBoundingClientRect();
+        setMousePos({
+            x: e.clientX - rect.left,
+            y: e.clientY - rect.top,
+        });
+    };
 
     const circles = [
         { id: 1, x: "30%", y: "40%", size: 60 },
@@ -35,6 +28,7 @@ export default function GooeyLiquid() {
             className="relative w-full h-full overflow-hidden bg-zinc-900 cursor-none"
             onMouseEnter={() => setIsHovering(true)}
             onMouseLeave={() => setIsHovering(false)}
+            onMouseMove={handleMouseMove}
         >
             <svg className="absolute inset-0 w-full h-full pointer-events-none">
                 <defs>
