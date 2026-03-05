@@ -353,6 +353,12 @@ export default function TetrisDrop() {
             }
         };
 
+        const onWindowPointerDown = (e) => {
+            if (e.target !== canvas) {
+                state.focused = false;
+            }
+        };
+
         const onKeyDown = (e) => {
             // ESC는 focused 없어도 먹게(진짜 “나가기” 느낌)
             if (e.key === "Escape") {
@@ -384,6 +390,7 @@ export default function TetrisDrop() {
         rafRef.current = requestAnimationFrame(step);
 
         canvas.addEventListener("pointerdown", onPointerDown);
+        window.addEventListener("pointerdown", onWindowPointerDown);
         window.addEventListener("keydown", onKeyDown, { passive: false });
         window.addEventListener("resize", resize);
         canvas.style.touchAction = "none";
@@ -391,6 +398,7 @@ export default function TetrisDrop() {
         return () => {
             cancelAnimationFrame(rafRef.current);
             canvas.removeEventListener("pointerdown", onPointerDown);
+            window.removeEventListener("pointerdown", onWindowPointerDown);
             window.removeEventListener("keydown", onKeyDown);
             window.removeEventListener("resize", resize);
         };
