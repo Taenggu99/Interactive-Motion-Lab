@@ -1,10 +1,11 @@
 // eslint-disable-next-line no-unused-vars
 import { motion } from "framer-motion";
-import { useState } from "react";
+import { useState, useId } from "react";
 
 export default function GooeyLiquid() {
     const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
     const [isHovering, setIsHovering] = useState(false);
+    const filterId = useId();
 
     const handleMouseMove = (e) => {
         const rect = e.currentTarget.getBoundingClientRect();
@@ -24,7 +25,7 @@ export default function GooeyLiquid() {
 
     return (
         <div
-            id="gooey-container"
+            id={`gooey-container-${filterId}`}
             className="relative w-full h-full overflow-hidden bg-zinc-900 cursor-none"
             onMouseEnter={() => setIsHovering(true)}
             onMouseLeave={() => setIsHovering(false)}
@@ -32,7 +33,7 @@ export default function GooeyLiquid() {
         >
             <svg className="absolute inset-0 w-full h-full pointer-events-none">
                 <defs>
-                    <filter id="goo">
+                    <filter id={`goo-${filterId}`}>
                         <feGaussianBlur in="SourceGraphic" stdDeviation="10" result="blur" />
                         <feColorMatrix
                             in="blur"
@@ -44,7 +45,7 @@ export default function GooeyLiquid() {
                     </filter>
                 </defs>
 
-                <g filter="url(#goo)">
+                <g filter={`url(#goo-${filterId})`}>
                     {circles.map((circle) => (
                         <motion.circle
                             key={circle.id}

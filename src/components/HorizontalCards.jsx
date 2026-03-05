@@ -62,7 +62,7 @@ export default function HorizontalCards() {
       <div className="mx-auto max-w-6xl px-6 mt-8">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {cards.map((c) => (
-            <div key={c.id} className="h-[400px]">
+            <div key={c.id} className="h-full">
               <CardShell title={c.title} subtitle={c.subtitle}>
                 {c.component}
               </CardShell>
