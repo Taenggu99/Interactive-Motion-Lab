@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 
 export default function TetrisDrop() {
+    const containerRef = useRef(null);
     const canvasRef = useRef(null);
     const rafRef = useRef(null);
 
@@ -8,7 +9,7 @@ export default function TetrisDrop() {
         const canvas = canvasRef.current;
         const ctx = canvas.getContext("2d");
 
-        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        const container = containerRef.current;
         const rand = (min, max) => Math.random() * (max - min) + min;
 
         const WORLD_WIDTH = 960;
@@ -157,7 +158,10 @@ export default function TetrisDrop() {
         };
 
         const resize = () => {
-            const rect = canvas.getBoundingClientRect();
+            if (!container) return;
+
+            const rect = container.getBoundingClientRect();
+            const dpr = Math.min(window.devicePixelRatio || 1, 2);
 
             canvas.width = Math.floor(rect.width * dpr);
             canvas.height = Math.floor(rect.height * dpr);
@@ -427,6 +431,14 @@ export default function TetrisDrop() {
         canvas.addEventListener("pointerdown", onPointerDown);
         window.addEventListener("pointerdown", onWindowPointerDown);
         window.addEventListener("keydown", onKeyDown, { passive: false });
+        const resizeObserver = new ResizeObserver(() => {
+            resize();
+        });
+
+        if (container) {
+            resizeObserver.observe(container);
+        }
+
         window.addEventListener("resize", resize);
         canvas.style.touchAction = "none";
 
@@ -436,8 +448,13 @@ export default function TetrisDrop() {
             window.removeEventListener("pointerdown", onWindowPointerDown);
             window.removeEventListener("keydown", onKeyDown);
             window.removeEventListener("resize", resize);
+            resizeObserver.disconnect();
         };
     }, []);
 
-    return <canvas ref={canvasRef} className="w-full h-full block" />;
+    return (
+        <div ref={containerRef} className="w-full h-full">
+            <canvas ref={canvasRef} className="w-full h-full block" />
+        </div>
+    );
 }
