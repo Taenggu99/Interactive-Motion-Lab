@@ -1,9 +1,8 @@
 import { useEffect, useRef } from "react";
 
 export default function GravitySandbox() {
+    const containerRef = useRef(null);
     const canvasRef = useRef(null);
-    const animationRef = useRef(null);
-
     const clumpsRef = useRef([]);
     const gridRef = useRef([]);
 
@@ -259,11 +258,13 @@ export default function GravitySandbox() {
     }, []);
 
     useEffect(() => {
+        const container = containerRef.current;
+
         const resizeCanvas = () => {
             const canvas = canvasRef.current;
-            if (!canvas) return;
+            if (!canvas || !container) return;
 
-            const rect = canvas.parentElement.getBoundingClientRect();
+            const rect = container.getBoundingClientRect();
             const dpr = Math.min(window.devicePixelRatio || 1, 2);
             dprRef.current = dpr;
 
@@ -291,13 +292,24 @@ export default function GravitySandbox() {
         };
 
         resizeCanvas();
+
+        const resizeObserver = new ResizeObserver(() => {
+            resizeCanvas();
+        });
+
+        if (container) {
+            resizeObserver.observe(container);
+        }
         window.addEventListener("resize", resizeCanvas);
 
-        return () => window.removeEventListener("resize", resizeCanvas);
+        return () => {
+            resizeObserver.disconnect();
+            window.removeEventListener("resize", resizeCanvas);
+        };
     }, []);
 
     return (
-        <div className="relative w-full h-full bg-zinc-900">
+        <div ref={containerRef} className="relative w-full h-full bg-zinc-900 overflow-hidden">
             <canvas
                 ref={canvasRef}
                 onClick={handleCanvasClick}
