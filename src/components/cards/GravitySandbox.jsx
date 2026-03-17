@@ -2,22 +2,35 @@ import { useEffect, useRef } from "react";
 
 export default function GravitySandbox() {
     const canvasRef = useRef(null);
+    const animationRef = useRef(null);
+
     const clumpsRef = useRef([]);
     const gridRef = useRef([]);
+
     const colsRef = useRef(0);
     const rowsRef = useRef(0);
 
+    // 내부 시뮬레이션 좌표계 고정
+    const WORLD_WIDTH = 960;
+    const WORLD_HEIGHT = 600;
     const cellSize = 4;
 
-    const randomRange = (min, max) => Math.random() * (max - min) + min;
+    const dprRef = useRef(1);
+    const viewportRef = useRef({
+        width: WORLD_WIDTH,
+        height: WORLD_HEIGHT,
+        scaleX: 1,
+        scaleY: 1,
+    });
 
-    const createGrid = (width, height) => {
-        const cols = Math.floor(width / cellSize);
-        const rows = Math.floor(height / cellSize);
+    const createGrid = () => {
+        const cols = Math.floor(WORLD_WIDTH / cellSize);
+        const rows = Math.floor(WORLD_HEIGHT / cellSize);
 
         colsRef.current = cols;
         rowsRef.current = rows;
-        gridRef.current = Array.from({ length: rows }, () => Array(cols).fill(null));
+
+        return Array.from({ length: rows }, () => Array(cols).fill(null));
     };
 
     const inBounds = (x, y) => {
@@ -31,6 +44,7 @@ export default function GravitySandbox() {
 
     const setSand = (x, y, color) => {
         if (!inBounds(x, y)) return;
+
         gridRef.current[y][x] = {
             color,
             settledAt: performance.now(),
@@ -46,7 +60,7 @@ export default function GravitySandbox() {
             vx: (Math.random() - 0.5) * 4,
             vy: (Math.random() - 0.5) * 2,
             radius,
-            color: `hsl(${Math.random() * 40 + 25}, 70%, 58%)`,
+            color: `hsl(${Math.random() * 40 + 25},70%,58%)`,
         });
     };
 
@@ -64,106 +78,72 @@ export default function GravitySandbox() {
 
                     if (isEmpty(gx, gy)) {
                         setSand(gx, gy, clump.color);
-                    } else {
-                        // ✅ 기존보다 훨씬 좁게 퍼지게
-                        const spread = [
-                            [0, 0],
-                            [-1, 0],
-                            [1, 0],
-                            [0, -1],
-                        ];
-
-                        for (const [sx, sy] of spread) {
-                            const nx = gx + sx;
-                            const ny = gy + sy;
-                            if (isEmpty(nx, ny)) {
-                                setSand(nx, ny, clump.color);
-                                break;
-                            }
-                        }
                     }
                 }
             }
         }
     };
 
-    const handleCanvasClick = (e) => {
-        const rect = canvasRef.current.getBoundingClientRect();
-        spawnClump(e.clientX - rect.left, e.clientY - rect.top);
+    const getWorldPointer = (e) => {
+        const canvas = canvasRef.current;
+        const rect = canvas.getBoundingClientRect();
+
+        const localX = e.clientX - rect.left;
+        const localY = e.clientY - rect.top;
+
+        const { width, height } = viewportRef.current;
+
+        return {
+            x: (localX / rect.width) * width,
+            y: (localY / rect.height) * height,
+        };
     };
+
+    const handleCanvasClick = (e) => {
+        const { x, y } = getWorldPointer(e);
+        spawnClump(x, y);
+    };
+
+    useEffect(() => {
+        gridRef.current = createGrid();
+    }, []);
 
     useEffect(() => {
         const canvas = canvasRef.current;
         const ctx = canvas.getContext("2d");
+
         let animationFrameId;
 
         const updateSand = (now) => {
             const grid = gridRef.current;
-            const rows = rowsRef.current;
-            const cols = colsRef.current;
 
-            for (let y = rows - 2; y >= 0; y--) {
-                for (let x = 0; x < cols; x++) {
+            for (let y = rowsRef.current - 2; y >= 0; y--) {
+                for (let x = 0; x < colsRef.current; x++) {
                     const sand = grid[y][x];
                     if (!sand) continue;
 
                     const age = now - sand.settledAt;
 
-                    // ✅ 3초 지나면 거의 멈춤
-                    // 완전히 고정하면 너무 딱딱해 보일 수 있어서
-                    // 아주 약간만 움직일 확률 남겨둠
                     if (age > 3000 && Math.random() > 0.01) continue;
 
-                    // 아래로
                     if (isEmpty(x, y + 1)) {
-                        grid[y + 1][x] = {
-                            ...sand,
-                            settledAt: now,
-                        };
+                        grid[y + 1][x] = { ...sand, settledAt: now };
                         grid[y][x] = null;
                         continue;
                     }
 
-                    // ✅ 좌하/우하 이동 확률을 줄여서 덜 퍼지게
                     const dirFirst = Math.random() < 0.5 ? -1 : 1;
                     const dirSecond = -dirFirst;
 
-                    if (Math.random() < 0.35 && isEmpty(x + dirFirst, y + 1)) {
-                        grid[y + 1][x + dirFirst] = {
-                            ...sand,
-                            settledAt: now,
-                        };
+                    if (isEmpty(x + dirFirst, y + 1)) {
+                        grid[y + 1][x + dirFirst] = { ...sand, settledAt: now };
                         grid[y][x] = null;
                         continue;
                     }
 
-                    if (Math.random() < 0.2 && isEmpty(x + dirSecond, y + 1)) {
-                        grid[y + 1][x + dirSecond] = {
-                            ...sand,
-                            settledAt: now,
-                        };
+                    if (isEmpty(x + dirSecond, y + 1)) {
+                        grid[y + 1][x + dirSecond] = { ...sand, settledAt: now };
                         grid[y][x] = null;
-                        continue;
-                    }
-
-                    // ✅ 가로 퍼짐은 아주 드물게만
-                    if (age < 1200 && Math.random() < 0.03) {
-                        if (isEmpty(x + dirFirst, y)) {
-                            grid[y][x + dirFirst] = {
-                                ...sand,
-                                settledAt: now,
-                            };
-                            grid[y][x] = null;
-                            continue;
-                        }
-
-                        if (isEmpty(x + dirSecond, y)) {
-                            grid[y][x + dirSecond] = {
-                                ...sand,
-                                settledAt: now,
-                            };
-                            grid[y][x] = null;
-                        }
                     }
                 }
             }
@@ -186,13 +166,19 @@ export default function GravitySandbox() {
                     clump.x = clump.radius;
                     clump.vx *= -bounce;
                 }
-                if (clump.x + clump.radius > canvas.width) {
-                    clump.x = canvas.width - clump.radius;
+
+                if (clump.x + clump.radius > WORLD_WIDTH) {
+                    clump.x = WORLD_WIDTH - clump.radius;
                     clump.vx *= -bounce;
                 }
 
-                if (clump.y + clump.radius >= canvas.height) {
-                    clump.y = canvas.height - clump.radius;
+                if (clump.y - clump.radius < 0) {
+                    clump.y = clump.radius;
+                    clump.vy *= -bounce;
+                }
+
+                if (clump.y + clump.radius >= WORLD_HEIGHT) {
+                    clump.y = WORLD_HEIGHT - clump.radius;
                     breakClumpIntoSand(clump);
                     return false;
                 }
@@ -209,13 +195,11 @@ export default function GravitySandbox() {
             });
         };
 
-        const drawSand = () => {
+        const drawSand = (ctx) => {
             const grid = gridRef.current;
-            const rows = rowsRef.current;
-            const cols = colsRef.current;
 
-            for (let y = 0; y < rows; y++) {
-                for (let x = 0; x < cols; x++) {
+            for (let y = 0; y < rowsRef.current; y++) {
+                for (let x = 0; x < colsRef.current; x++) {
                     const sand = grid[y][x];
                     if (!sand) continue;
 
@@ -225,62 +209,100 @@ export default function GravitySandbox() {
             }
         };
 
-        const drawClumps = () => {
+        const drawClumps = (ctx) => {
             clumpsRef.current.forEach((clump) => {
                 ctx.beginPath();
                 ctx.arc(clump.x, clump.y, clump.radius, 0, Math.PI * 2);
                 ctx.fillStyle = clump.color;
                 ctx.fill();
-                ctx.closePath();
             });
         };
 
+        const drawOverlay = (ctx) => {
+            ctx.fillStyle = "rgba(228, 228, 231, 0.7)";
+            ctx.font = "12px system-ui, -apple-system, Segoe UI, Roboto";
+            ctx.fillText("클릭하면 모래 덩어리가 떨어져요", 14, 20);
+
+            ctx.fillStyle = "rgba(228, 228, 231, 0.45)";
+            ctx.font = "11px system-ui, -apple-system, Segoe UI, Roboto";
+            ctx.fillText(
+                "바닥이나 다른 모래에 닿으면 파사삭 부서져 쌓입니다",
+                14,
+                38
+            );
+        };
+
         const update = (now) => {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const canvas = canvasRef.current;
+            if (!canvas) return;
+
+            const { width, height } = viewportRef.current;
+
+            ctx.clearRect(0, 0, width, height);
+
+            ctx.fillStyle = "rgb(24, 24, 27)";
+            ctx.fillRect(0, 0, width, height);
 
             updateClumps();
             updateSand(now);
 
-            drawSand();
-            drawClumps();
+            drawSand(ctx);
+            drawClumps(ctx);
+            drawOverlay(ctx);
 
             animationFrameId = requestAnimationFrame(update);
         };
 
         animationFrameId = requestAnimationFrame(update);
+
         return () => cancelAnimationFrame(animationFrameId);
     }, []);
 
     useEffect(() => {
         const resizeCanvas = () => {
-            if (!canvasRef.current) return;
+            const canvas = canvasRef.current;
+            if (!canvas) return;
 
-            const rect = canvasRef.current.parentElement.getBoundingClientRect();
-            canvasRef.current.width = rect.width;
-            canvasRef.current.height = rect.height;
+            const rect = canvas.parentElement.getBoundingClientRect();
+            const dpr = Math.min(window.devicePixelRatio || 1, 2);
+            dprRef.current = dpr;
 
-            createGrid(rect.width, rect.height);
-            clumpsRef.current = [];
+            canvas.width = Math.floor(rect.width * dpr);
+            canvas.height = Math.floor(rect.height * dpr);
+
+            canvas.style.width = `${rect.width}px`;
+            canvas.style.height = `${rect.height}px`;
+
+            const ctx = canvas.getContext("2d");
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.scale(dpr, dpr);
+
+            const scaleX = rect.width / WORLD_WIDTH;
+            const scaleY = rect.height / WORLD_HEIGHT;
+
+            viewportRef.current = {
+                width: WORLD_WIDTH,
+                height: WORLD_HEIGHT,
+                scaleX,
+                scaleY,
+            };
+
+            ctx.scale(scaleX, scaleY);
         };
 
         resizeCanvas();
         window.addEventListener("resize", resizeCanvas);
+
         return () => window.removeEventListener("resize", resizeCanvas);
     }, []);
 
     return (
-        <div className="relative w-full h-full bg-zinc-900 overflow-hidden">
+        <div className="relative w-full h-full bg-zinc-900">
             <canvas
                 ref={canvasRef}
                 onClick={handleCanvasClick}
-                className="w-full h-full cursor-crosshair"
+                className="w-full h-full cursor-crosshair block"
             />
-            <div className="absolute top-4 left-4 text-xs text-zinc-500 pointer-events-none">
-                클릭하면 모래 덩어리가 떨어져요
-            </div>
-            <div className="absolute top-9 left-4 text-[11px] text-zinc-600 pointer-events-none">
-                바닥이나 다른 모래에 닿으면 파사삭 부서져 쌓입니다
-            </div>
         </div>
     );
 }

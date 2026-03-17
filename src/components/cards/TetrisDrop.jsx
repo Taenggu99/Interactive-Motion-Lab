@@ -11,6 +11,9 @@ export default function TetrisDrop() {
         const dpr = Math.min(window.devicePixelRatio || 1, 2);
         const rand = (min, max) => Math.random() * (max - min) + min;
 
+        const WORLD_WIDTH = 960;
+        const WORLD_HEIGHT = 600;
+
         const COLS = 20;
         const ROWS = 15;
 
@@ -27,9 +30,11 @@ export default function TetrisDrop() {
         const rotateCW = (m) => {
             const n = m.length;
             const r = Array.from({ length: n }, () => Array(n).fill(0));
-            for (let y = 0; y < n; y++)
-                for (let x = 0; x < n; x++)
+            for (let y = 0; y < n; y++) {
+                for (let x = 0; x < n; x++) {
                     r[x][n - 1 - y] = m[y][x];
+                }
+            }
             return r;
         };
 
@@ -42,6 +47,7 @@ export default function TetrisDrop() {
             let s = SHAPES[Math.floor(Math.random() * SHAPES.length)];
             const times = Math.floor(Math.random() * 4);
             for (let i = 0; i < times; i++) s = rotateCW(s);
+
             return {
                 shape: s,
                 x: Math.floor(COLS / 2) - 2,
@@ -51,10 +57,10 @@ export default function TetrisDrop() {
         };
 
         const state = {
-            w: 0,
-            h: 0,
-            cellW: 20,
-            cellH: 20,
+            w: WORLD_WIDTH,
+            h: WORLD_HEIGHT,
+            cellW: WORLD_WIDTH / COLS,
+            cellH: WORLD_HEIGHT / ROWS,
 
             board: makeBoard(),
             active: null,
@@ -69,8 +75,6 @@ export default function TetrisDrop() {
             last: 0,
 
             focused: false,
-
-            // ESC 종료 알림(토스트)
             endedMsgUntil: 0,
         };
 
@@ -78,6 +82,7 @@ export default function TetrisDrop() {
             for (let y = 0; y < 4; y++) {
                 for (let x = 0; x < 4; x++) {
                     if (!shape[y][x]) continue;
+
                     const bx = px + x;
                     const by = py + y;
 
@@ -90,6 +95,7 @@ export default function TetrisDrop() {
 
         const clearLines = () => {
             let cleared = 0;
+
             for (let y = ROWS - 1; y >= 0; y--) {
                 if (state.board[y].every(Boolean)) {
                     state.board.splice(y, 1);
@@ -98,6 +104,7 @@ export default function TetrisDrop() {
                     y++;
                 }
             }
+
             state.score += [0, 100, 300, 500, 800][cleared] || 0;
         };
 
@@ -118,8 +125,10 @@ export default function TetrisDrop() {
             for (let sy = 0; sy < 4; sy++) {
                 for (let sx = 0; sx < 4; sx++) {
                     if (!shape[sy][sx]) continue;
+
                     const bx = x + sx;
                     const by = y + sy;
+
                     if (by >= 0 && by < ROWS && bx >= 0 && bx < COLS) {
                         state.board[by][bx] = color;
                     }
@@ -139,26 +148,35 @@ export default function TetrisDrop() {
             spawn();
         };
 
-        // ESC로 “게임 종료(시작 화면으로 돌아가기)”
         const exitGame = (now) => {
             state.started = false;
             state.gameOver = false;
-            state.active = null; // 떨어지는 도형 제거
-            state.acc = 0;       // 타이밍 리셋
-            state.endedMsgUntil = now + 2000; // 2초 토스트
+            state.active = null;
+            state.acc = 0;
+            state.endedMsgUntil = now + 2000;
         };
 
-        // 캔버스 100% 꽉 차게
         const resize = () => {
-            state.w = canvas.offsetWidth;
-            state.h = canvas.offsetHeight;
+            const rect = canvas.getBoundingClientRect();
 
-            canvas.width = Math.floor(state.w * dpr);
-            canvas.height = Math.floor(state.h * dpr);
-            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            canvas.width = Math.floor(rect.width * dpr);
+            canvas.height = Math.floor(rect.height * dpr);
 
-            state.cellW = state.w / COLS;
-            state.cellH = state.h / ROWS;
+            canvas.style.width = `${rect.width}px`;
+            canvas.style.height = `${rect.height}px`;
+
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.scale(dpr, dpr);
+
+            const scaleX = rect.width / WORLD_WIDTH;
+            const scaleY = rect.height / WORLD_HEIGHT;
+
+            ctx.scale(scaleX, scaleY);
+
+            state.w = WORLD_WIDTH;
+            state.h = WORLD_HEIGHT;
+            state.cellW = WORLD_WIDTH / COLS;
+            state.cellH = WORLD_HEIGHT / ROWS;
         };
 
         const drawCell = (gx, gy, fill) => {
@@ -186,13 +204,12 @@ export default function TetrisDrop() {
         const draw = (now) => {
             ctx.clearRect(0, 0, state.w, state.h);
 
-            // bg
             ctx.fillStyle = "rgba(9, 9, 11, 0.85)";
             ctx.fillRect(0, 0, state.w, state.h);
 
-            // grid
             ctx.strokeStyle = "rgba(228,228,231,0.06)";
             ctx.lineWidth = 1;
+
             for (let x = 1; x < COLS; x++) {
                 const px = x * state.cellW;
                 ctx.beginPath();
@@ -200,6 +217,7 @@ export default function TetrisDrop() {
                 ctx.lineTo(px, state.h);
                 ctx.stroke();
             }
+
             for (let y = 1; y < ROWS; y++) {
                 const py = y * state.cellH;
                 ctx.beginPath();
@@ -208,7 +226,6 @@ export default function TetrisDrop() {
                 ctx.stroke();
             }
 
-            // locked
             for (let y = 0; y < ROWS; y++) {
                 for (let x = 0; x < COLS; x++) {
                     const fill = state.board[y][x];
@@ -216,14 +233,15 @@ export default function TetrisDrop() {
                 }
             }
 
-            // active
             if (state.active) {
                 const { shape, x, y, color } = state.active;
                 for (let sy = 0; sy < 4; sy++) {
                     for (let sx = 0; sx < 4; sx++) {
                         if (!shape[sy][sx]) continue;
+
                         const bx = x + sx;
                         const by = y + sy;
+
                         if (by >= 0 && by < ROWS && bx >= 0 && bx < COLS) {
                             drawCell(bx, by, color);
                         }
@@ -231,7 +249,6 @@ export default function TetrisDrop() {
                 }
             }
 
-            // HUD
             ctx.fillStyle = "rgba(228,228,231,0.95)";
             ctx.font = "600 14px system-ui, -apple-system, Segoe UI, Roboto";
             ctx.fillText(`Score: ${state.score}`, 12, 22);
@@ -241,7 +258,6 @@ export default function TetrisDrop() {
                 drawMiniPiece(state.next.shape, state.w - 54, 30, 10, state.next.color);
             }
 
-            // 설명 문구 업데이트: ESC 추가
             ctx.fillStyle = "rgba(228,228,231,0.55)";
             ctx.font = "12px system-ui, -apple-system, Segoe UI, Roboto";
             ctx.fillText(
@@ -250,35 +266,48 @@ export default function TetrisDrop() {
                 state.h - 10
             );
 
-            // start overlay
             if (!state.started) {
                 ctx.fillStyle = "rgba(0,0,0,0.55)";
                 ctx.fillRect(0, 0, state.w, state.h);
 
                 ctx.fillStyle = "rgba(228,228,231,0.95)";
                 ctx.font = "700 20px system-ui, -apple-system, Segoe UI, Roboto";
-                ctx.fillText("게임 시작하기", Math.floor(state.w / 2) - 62, Math.floor(state.h / 2) - 6);
+                ctx.fillText(
+                    "게임 시작하기",
+                    Math.floor(state.w / 2) - 62,
+                    Math.floor(state.h / 2) - 6
+                );
 
                 ctx.fillStyle = "rgba(228,228,231,0.70)";
                 ctx.font = "14px system-ui, -apple-system, Segoe UI, Roboto";
-                ctx.fillText("캔버스를 클릭하세요", Math.floor(state.w / 2) - 66, Math.floor(state.h / 2) + 18);
+                ctx.fillText(
+                    "캔버스를 클릭하세요",
+                    Math.floor(state.w / 2) - 66,
+                    Math.floor(state.h / 2) + 18
+                );
             }
 
-            // game over overlay
             if (state.gameOver) {
                 ctx.fillStyle = "rgba(0,0,0,0.65)";
                 ctx.fillRect(0, 0, state.w, state.h);
 
                 ctx.fillStyle = "rgba(228,228,231,0.95)";
                 ctx.font = "700 22px system-ui, -apple-system, Segoe UI, Roboto";
-                ctx.fillText("GAME OVER", Math.floor(state.w / 2) - 68, Math.floor(state.h / 2) - 8);
+                ctx.fillText(
+                    "GAME OVER",
+                    Math.floor(state.w / 2) - 68,
+                    Math.floor(state.h / 2) - 8
+                );
 
                 ctx.fillStyle = "rgba(228,228,231,0.75)";
                 ctx.font = "14px system-ui, -apple-system, Segoe UI, Roboto";
-                ctx.fillText("클릭해서 재시작", Math.floor(state.w / 2) - 58, Math.floor(state.h / 2) + 18);
+                ctx.fillText(
+                    "클릭해서 재시작",
+                    Math.floor(state.w / 2) - 58,
+                    Math.floor(state.h / 2) + 18
+                );
             }
 
-            // ESC 종료 토스트
             if (now < state.endedMsgUntil) {
                 ctx.save();
                 ctx.fillStyle = "rgba(0,0,0,0.55)";
@@ -294,18 +323,25 @@ export default function TetrisDrop() {
         const move = (dx) => {
             if (!state.active || state.gameOver) return;
             const nx = state.active.x + dx;
-            if (!collides(state.active.shape, nx, state.active.y)) state.active.x = nx;
+            if (!collides(state.active.shape, nx, state.active.y)) {
+                state.active.x = nx;
+            }
         };
 
         const dropOne = () => {
             if (!state.active || state.gameOver) return;
             const ny = state.active.y + 1;
-            if (!collides(state.active.shape, state.active.x, ny)) state.active.y = ny;
-            else lock();
+
+            if (!collides(state.active.shape, state.active.x, ny)) {
+                state.active.y = ny;
+            } else {
+                lock();
+            }
         };
 
         const rotate = () => {
             if (!state.active || state.gameOver) return;
+
             const r = rotateCW(state.active.shape);
 
             if (!collides(r, state.active.x, state.active.y)) {
@@ -360,7 +396,6 @@ export default function TetrisDrop() {
         };
 
         const onKeyDown = (e) => {
-            // ESC는 focused 없어도 먹게(진짜 “나가기” 느낌)
             if (e.key === "Escape") {
                 e.preventDefault();
                 exitGame(performance.now());
@@ -404,5 +439,5 @@ export default function TetrisDrop() {
         };
     }, []);
 
-    return <canvas ref={canvasRef} className="w-full h-full" />;
+    return <canvas ref={canvasRef} className="w-full h-full block" />;
 }

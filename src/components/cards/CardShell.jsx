@@ -1,6 +1,7 @@
 export default function CardShell({ title, subtitle, children }) {
   return (
-    <div className="rounded-2xl border border-zinc-800 bg-zinc-900/30 shadow-lg overflow-hidden">
+    <div className="rounded-2xl border border-zinc-800 bg-zinc-900/30 shadow-lg overflow-hidden flex flex-col">
+
       <div className="p-5">
         <div className="flex items-start justify-between gap-3">
           <div>
@@ -13,13 +14,15 @@ export default function CardShell({ title, subtitle, children }) {
         </div>
       </div>
 
-      <div className="h-[340px] border-t border-zinc-800 bg-zinc-950">
+      {/* interaction area */}
+      <div className="border-t border-zinc-800 bg-zinc-950 aspect-[16/10] w-full">
         {children}
       </div>
 
       <div className="p-4 text-xs text-zinc-400">
         다음 단계에서 각 카드에 Canvas/SVG 인터랙션을 붙일 거예요.
       </div>
+
     </div>
   );
 }
