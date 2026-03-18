@@ -6,17 +6,26 @@ export default function TetrisDrop() {
     const rafRef = useRef(null);
 
     useEffect(() => {
+        const container = containerRef.current;
         const canvas = canvasRef.current;
         const ctx = canvas.getContext("2d");
-
-        const container = containerRef.current;
-        const rand = (min, max) => Math.random() * (max - min) + min;
 
         const WORLD_WIDTH = 960;
         const WORLD_HEIGHT = 600;
 
         const COLS = 20;
         const ROWS = 15;
+
+        const rand = (min, max) => Math.random() * (max - min) + min;
+
+        const viewport = {
+            cssWidth: WORLD_WIDTH,
+            cssHeight: WORLD_HEIGHT,
+            scale: 1,
+            offsetX: 0,
+            offsetY: 0,
+            dpr: 1,
+        };
 
         const SHAPES = [
             [[0, 0, 0, 0], [1, 1, 1, 1], [0, 0, 0, 0], [0, 0, 0, 0]], // I
@@ -157,30 +166,42 @@ export default function TetrisDrop() {
             state.endedMsgUntil = now + 2000;
         };
 
-        const resize = () => {
+        const recalcViewport = () => {
             if (!container) return;
 
             const rect = container.getBoundingClientRect();
             const dpr = Math.min(window.devicePixelRatio || 1, 2);
 
-            canvas.width = Math.floor(rect.width * dpr);
-            canvas.height = Math.floor(rect.height * dpr);
+            viewport.cssWidth = rect.width;
+            viewport.cssHeight = rect.height;
+            viewport.dpr = dpr;
 
+            canvas.width = Math.max(1, Math.floor(rect.width * dpr));
+            canvas.height = Math.max(1, Math.floor(rect.height * dpr));
             canvas.style.width = `${rect.width}px`;
             canvas.style.height = `${rect.height}px`;
 
+            viewport.scale = Math.min(
+                rect.width / WORLD_WIDTH,
+                rect.height / WORLD_HEIGHT
+            );
+
+            viewport.offsetX = (rect.width - WORLD_WIDTH * viewport.scale) / 2;
+            viewport.offsetY = (rect.height - WORLD_HEIGHT * viewport.scale) / 2;
+        };
+
+        const beginWorldTransform = () => {
             ctx.setTransform(1, 0, 0, 1, 0, 0);
-            ctx.scale(dpr, dpr);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            const scaleX = rect.width / WORLD_WIDTH;
-            const scaleY = rect.height / WORLD_HEIGHT;
-
-            ctx.scale(scaleX, scaleY);
-
-            state.w = WORLD_WIDTH;
-            state.h = WORLD_HEIGHT;
-            state.cellW = WORLD_WIDTH / COLS;
-            state.cellH = WORLD_HEIGHT / ROWS;
+            ctx.setTransform(
+                viewport.dpr * viewport.scale,
+                0,
+                0,
+                viewport.dpr * viewport.scale,
+                viewport.offsetX * viewport.dpr,
+                viewport.offsetY * viewport.dpr
+            );
         };
 
         const drawCell = (gx, gy, fill) => {
@@ -205,8 +226,40 @@ export default function TetrisDrop() {
             }
         };
 
+        const getGhostY = () => {
+            if (!state.active) return null;
+            let ghostY = state.active.y;
+            while (!collides(state.active.shape, state.active.x, ghostY + 1)) {
+                ghostY += 1;
+            }
+            return ghostY;
+        };
+
+        const drawGhost = () => {
+            if (!state.active || state.gameOver) return;
+
+            const ghostY = getGhostY();
+            if (ghostY == null) return;
+
+            const { shape, x, color } = state.active;
+            const ghostColor = color.replace(/[\d.]+\)$/, "0.18)");
+
+            for (let sy = 0; sy < 4; sy++) {
+                for (let sx = 0; sx < 4; sx++) {
+                    if (!shape[sy][sx]) continue;
+
+                    const bx = x + sx;
+                    const by = ghostY + sy;
+
+                    if (by >= 0 && by < ROWS && bx >= 0 && bx < COLS) {
+                        drawCell(bx, by, ghostColor);
+                    }
+                }
+            }
+        };
+
         const draw = (now) => {
-            ctx.clearRect(0, 0, state.w, state.h);
+            beginWorldTransform();
 
             ctx.fillStyle = "rgba(9, 9, 11, 0.85)";
             ctx.fillRect(0, 0, state.w, state.h);
@@ -237,6 +290,8 @@ export default function TetrisDrop() {
                 }
             }
 
+            drawGhost();
+
             if (state.active) {
                 const { shape, x, y, color } = state.active;
                 for (let sy = 0; sy < 4; sy++) {
@@ -265,7 +320,7 @@ export default function TetrisDrop() {
             ctx.fillStyle = "rgba(228,228,231,0.55)";
             ctx.font = "12px system-ui, -apple-system, Segoe UI, Roboto";
             ctx.fillText(
-                "← → 이동 | ↓ 빠르게 | Space 회전 | 클릭: 시작/재시작 | ESC: 종료",
+                "← → 이동 | ↑ 회전 | ↓ 소프트드롭 | Space 하드드롭 | 클릭 시작/재시작 | ESC 종료",
                 12,
                 state.h - 10
             );
@@ -334,13 +389,22 @@ export default function TetrisDrop() {
 
         const dropOne = () => {
             if (!state.active || state.gameOver) return;
-            const ny = state.active.y + 1;
 
+            const ny = state.active.y + 1;
             if (!collides(state.active.shape, state.active.x, ny)) {
                 state.active.y = ny;
             } else {
                 lock();
             }
+        };
+
+        const hardDrop = () => {
+            if (!state.active || state.gameOver) return;
+
+            while (!collides(state.active.shape, state.active.x, state.active.y + 1)) {
+                state.active.y += 1;
+            }
+            lock();
         };
 
         const rotate = () => {
@@ -418,42 +482,46 @@ export default function TetrisDrop() {
             } else if (e.key === "ArrowDown") {
                 e.preventDefault();
                 dropOne();
-            } else if (e.code === "Space") {
+            } else if (e.key === "ArrowUp") {
                 e.preventDefault();
                 rotate();
+            } else if (e.code === "Space") {
+                e.preventDefault();
+                hardDrop();
             }
         };
 
-        resize();
-        state.last = performance.now();
-        rafRef.current = requestAnimationFrame(step);
+        recalcViewport();
 
-        canvas.addEventListener("pointerdown", onPointerDown);
-        window.addEventListener("pointerdown", onWindowPointerDown);
-        window.addEventListener("keydown", onKeyDown, { passive: false });
         const resizeObserver = new ResizeObserver(() => {
-            resize();
+            recalcViewport();
         });
 
         if (container) {
             resizeObserver.observe(container);
         }
 
-        window.addEventListener("resize", resize);
+        state.last = performance.now();
+        rafRef.current = requestAnimationFrame(step);
+
+        canvas.addEventListener("pointerdown", onPointerDown);
+        window.addEventListener("pointerdown", onWindowPointerDown);
+        window.addEventListener("keydown", onKeyDown, { passive: false });
+        window.addEventListener("resize", recalcViewport);
         canvas.style.touchAction = "none";
 
         return () => {
             cancelAnimationFrame(rafRef.current);
+            resizeObserver.disconnect();
             canvas.removeEventListener("pointerdown", onPointerDown);
             window.removeEventListener("pointerdown", onWindowPointerDown);
             window.removeEventListener("keydown", onKeyDown);
-            window.removeEventListener("resize", resize);
-            resizeObserver.disconnect();
+            window.removeEventListener("resize", recalcViewport);
         };
     }, []);
 
     return (
-        <div ref={containerRef} className="w-full h-full">
+        <div ref={containerRef} className="w-full h-full overflow-hidden">
             <canvas ref={canvasRef} className="w-full h-full block" />
         </div>
     );
